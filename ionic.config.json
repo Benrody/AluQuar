@@ -1,0 +1,7 @@
+{
+  "name": "Aluquar",
+  "integrations": {
+    "cordova": {}
+  },
+  "type": "angular"
+}
