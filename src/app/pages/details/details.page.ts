@@ -53,6 +53,7 @@ export class DetailsPage implements OnInit {
 
         this.navCtrl.navigateBack('/home');
       } catch (error) {
+        error
         this.presentToast('Erro ao tentar salvar');
         this.loading.dismiss();
       }
