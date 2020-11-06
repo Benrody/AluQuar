@@ -1,10 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { Product } from 'src/app/interfaces/product';
-import { LoadingController, ToastController, NavController } from '@ionic/angular';
+import { LoadingController, ToastController, NavController, Platform } from '@ionic/angular';
 import { AuthService } from 'src/app/services/auth.service';
 import { ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { ProductService } from 'src/app/services/product.service';
+import { Camera } from '@ionic-native/camera/ngx';
+import { File } from '@ionic-native/file/ngx';
+import {AngularFireStorage} from '@angular/fire/storage';
+import { finalize } from 'rxjs/operators'
 
 @Component({
   selector: 'app-details',
@@ -16,6 +20,11 @@ export class DetailsPage implements OnInit {
   private loading: any;
   private productId: string = null;
   private productSubscription: Subscription;
+  private camera: Camera;
+  private file: File;
+  private afStorage: AngularFireStorage;
+  public uploadPercent: Observable<number>;
+  public downloadUrl: Observable<string> 
 
   constructor(
     private loadingCtrl: LoadingController,
@@ -23,7 +32,8 @@ export class DetailsPage implements OnInit {
     private authService: AuthService,
     private activeRoute: ActivatedRoute,
     private productService: ProductService,
-    private navCtrl: NavController
+    private navCtrl: NavController,
+    private platform: Platform
   ) {
     this.productId = this.activeRoute.snapshot.params['id'];
 
@@ -31,7 +41,48 @@ export class DetailsPage implements OnInit {
 
   }
   ngOnInit() { }
+//colocando imagem
+  async openGalery(){
+    const options: CameraOptions = {
+      quality: 100,
+      destinationType: this.camera.DestinationType.FILE_URI,
+      sourceType: this.camera.PictureSourceType.PHOTOLIBRARY,
+      correctOrientation: true
+    };
 
+    try {
+      const fileUri: string = await this.camera.getPicture(options);
+      let file: string;
+
+      if (this.platform.is('ios')){
+        file = fileUri.split('/').pop();
+      } else{
+        file = fileUri.substring(fileUri.lastIndexOf('/') + 1, fileUri.indexOf('?'));
+      }
+      const path: string = fileUri.substring(0, fileUri.lastIndexOf('/'))
+
+      const buffer: ArrayBuffer = await this.file.readAsArrayBuffer(path, file);
+      const blob: Blob = new Blob ([buffer], {type:'image/jpeg'});
+      
+      this.uploadPicture(blob);
+
+    }catch (error){
+        console.error(error)
+      }
+    }
+
+    uploadPicture(blob: Blob){
+      const ref = this.afStorage.ref('ionic.jpg');
+      const task = ref.put(blob);
+
+      this.uploadPercent = task.percentageChanges();
+
+      task.snapshotChanges().pipe(
+        finalize(()=> this.downloadUrl = ref.getDownloadURL())
+      ).subscribe()
+
+    }
+////////////////////////////////////////////////////////////////////////////
   ngOnDestroy(){
     if(this.productSubscription) this.productSubscription.unsubscribe();
   }
